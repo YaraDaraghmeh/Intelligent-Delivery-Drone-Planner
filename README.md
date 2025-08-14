@@ -84,12 +84,6 @@ Train Perceptron → Classify Weather → Optimize Route
 ## 📁 Project Structure
 
 ```
-intelligent-delivery-drone-planner/
-├── index.html              # Main application file
-├── README.md               # Project documentation
-├── weather_data_linearly_separable.xlsx  # Sample dataset
-└── assets/
-    └── drone.jpg           # Background image (optional)
 ```
 
 ## 🛠️ Built With
@@ -235,32 +229,87 @@ Temperature,Humidity,WindSpeed,SafeToFly
 
 ### Perceptron Algorithm
 ```javascript
-class Perceptron {
-    constructor(learningRate = 0.001, epochs = 5000) {
-        this.learningRate = learningRate;
-        this.epochs = epochs;
-        this.weights = null;
-        this.bias = 0;
-    }
-    
-    train(trainingData) {
-        // Initialize weights randomly
-        // Iterate through epochs
-        // Update weights based on prediction errors
-        // Apply gradient descent optimization
-    }
-}
+ class Perceptron {
+            constructor(learningRate = 0.001, epochs = 5000) {
+                this.learningRate = learningRate;
+                this.epochs = epochs;
+                this.weights = null;
+                this.bias = 0;
+            }
+
+            activate(x) {
+                return x >= 0 ? 1 : 0;
+            }
+
+            predict(inputs) {
+                if (!this.weights) return 0;
+                let sum = this.bias;
+                for (let i = 0; i < inputs.length; i++) {
+                    sum += inputs[i] * this.weights[i];
+                }
+                return this.activate(sum);
+            }
+
+            train(trainingData) {
+                const numFeatures = trainingData[0].inputs.length;
+                this.weights = Array(numFeatures).fill(0).map(() => Math.random() * 0.1 - 0.05);
+                this.bias = Math.random() * 0.1 - 0.05;
+
+                for (let epoch = 0; epoch < this.epochs; epoch++) {
+                    let totalError = 0;
+                    
+                    for (let sample of trainingData) {
+                        const prediction = this.predict(sample.inputs);
+                        const error = sample.target - prediction;
+                        totalError += Math.abs(error);
+
+                        for (let i = 0; i < this.weights.length; i++) {
+                            this.weights[i] += this.learningRate * error * sample.inputs[i];
+                        }
+                        this.bias += this.learningRate * error;
+                    }
+
+                    if (totalError === 0) break;
+                }
+                console.log("Final Weights:", this.weights);
+                console.log("Final Bias:", this.bias);
+            }
+        }
 ```
 
 ### Simulated Annealing Implementation
 ```javascript
-function simulatedAnnealing(initialRoute, initialTemp, coolingRate) {
-    // Initialize current and best solutions
-    // Temperature-based acceptance probability
-    // 2-opt neighborhood exploration
-    // Exponential cooling schedule
-    // Return optimized route
-}
+function simulatedAnnealing(initialRoute, initialTemp, coolingRate, minTemp = 0.1) {
+            let currentRoute = [...initialRoute];
+            let currentCost = calculateRouteCost(currentRoute);
+            let bestRoute = [...currentRoute];
+            let bestCost = currentCost;
+            let temperature = initialTemp;
+            
+            while (temperature > minTemp) {
+                const newRoute = [...currentRoute];
+                const i = Math.floor(Math.random() * newRoute.length);
+                const j = Math.floor(Math.random() * newRoute.length);
+                [newRoute[i], newRoute[j]] = [newRoute[j], newRoute[i]];
+                
+                const newCost = calculateRouteCost(newRoute);
+                const deltaE = newCost - currentCost;
+                
+                if (deltaE < 0 || Math.random() < Math.exp(-deltaE / temperature)) {
+                    currentRoute = newRoute;
+                    currentCost = newCost;
+                    
+                    if (currentCost < bestCost) {
+                        bestRoute = [...currentRoute];
+                        bestCost = currentCost;
+                    }
+                }
+                
+                temperature *= coolingRate;
+            }
+            
+            return { route: bestRoute, cost: bestCost };
+        }
 ```
 
 ## 🚨 Error Handling
