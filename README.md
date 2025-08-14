@@ -11,7 +11,7 @@
 
 *Optimize drone delivery routes using Perceptron classification and Simulated Annealing algorithms*
 
-[🚀 Live Demo](https://your-hosting-url.com) • [📊 Sample Dataset](weather_data_linearly_separable.xlsx) • [📖 Documentation](#documentation)
+[🚀 Live Demo](https://689e42393418aa2e4baeb170--sage-raindrop-03071b.netlify.app/) • [📊 Sample Dataset](weather_data_linearly_separable.xlsx) • [📖 Documentation](#documentation)
 
 </div>
 
