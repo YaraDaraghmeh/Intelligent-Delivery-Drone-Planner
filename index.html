@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Delivery Drone Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+.text-center.mb-8 {
+    background: linear-gradient(135deg, rgba(208, 206, 206, 0.5), rgba(0,0,0,0.7)), url('drone.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    padding: 60px 15px;
+    text-align: center;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.text-center.mb-8::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+    z-index: 1;
+}
+
+.text-center.mb-8 h1 {
+    position: relative;
+    z-index: 2;
+    font-size: clamp(28px, 5vw, 42px);  
+    margin: 0 0 15px 0;
+    font-weight: 900;
+    background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeInUp 1s ease-out;
+    line-height: 1.2; 
+}
+
+.text-center.mb-8 p {
+    position: relative;
+    z-index: 2;
+    font-size: clamp(16px, 2.5vw, 20px);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    opacity: 0.95;
+    animation: fadeInUp 1s ease-out 0.3s both;
+    line-height: 1.4;
+}
+
+        .canvas-container {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+        
+        .city-node {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .city-node:hover {
+            transform: scale(1.2);
+        }
+        
+        .route-line {
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .initial-route {
+            stroke: #dc2626;
+            stroke-dasharray: 5,5;
+        }
+        
+        .optimized-route {
+            stroke: #059669;
+            stroke-width: 3;
+        }
+        
+        .safe-city {
+            fill: #10b981;
+        }
+        
+        .unsafe-city {
+            fill: #ef4444;
+        }
+        
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+       @keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+        .file-upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .dataset-preview {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2"> Intelligent Delivery Drone Planner</h1>
+            <p class="text-gray-600">Using Perceptron Classification & Simulated Annealing Optimization</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+            <div class="lg:col-span-1 space-y-6">
+        
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> Dataset Upload</h2>
+                    
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;" onchange="handleFileUpload(event)">
+                        <div class="mb-3">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <p class="text-gray-600">
+                            <span class="font-medium">Click to upload</span> or drag and drop
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Excel (.xlsx, .xls) or CSV files
+                        </p>
+                    </div>
+
+                    <div id="fileInfo" class="mt-4 hidden">
+                        <div class="bg-green-50 border border-green-200 rounded-md p-3">
+                            <p class="text-sm text-green-800" id="fileName"></p>
+                            <p class="text-xs text-green-600" id="fileStats"></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button onclick="useSampleData()" 
+                                class="w-full bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                            Use Sample Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6" id="datasetPreview" style="display: none;">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> Dataset Preview</h2>
+                    <div class="dataset-preview">
+                        <table class="min-w-full text-xs">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-2 py-1 text-left">Temperature</th>
+                                    <th class="px-2 py-1 text-left">Humidity</th>
+                                    <th class="px-2 py-1 text-left">Wind Speed</th>
+                                    <th class="px-2 py-1 text-left">Safe to Fly</th>
+                                </tr>
+                            </thead>
+                            <tbody id="datasetPreviewBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500" id="datasetSummary"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> City Configuration</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Number of Cities</label>
+                        <input type="number" id="numCities" value="8" min="3" max="15" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <button onclick="generateRandomCities()" 
+                            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                        Generate Random Cities
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> SA Parameters</h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Initial Temperature</label>
+                            <input type="number" id="initialTemp" value="1000" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cooling Rate</label>
+                            <input type="number" id="coolingRate" value="0.995" step="0.001" min="0.9" max="0.999"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Unsafe Penalty</label>
+                            <input type="number" id="unsafePenalty" value="50" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> Optimization</h2>
+                    
+                    <div class="space-y-3">
+                        <button onclick="trainPerceptron()" id="trainBtn"
+                                class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Train Perceptron
+                        </button>
+                        
+                        <button onclick="classifyWeather()" id="classifyBtn"
+                                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Classify Weather
+                        </button>
+                        
+                        <button onclick="optimizeRoute()" id="optimizeBtn"
+                                class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Optimize Route
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> Results</h2>
+                    <div id="results" class="text-sm space-y-2">
+                        <p>Upload a dataset or use sample data to begin.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> Route Visualization</h2>
+                    <div class="canvas-container">
+                        <svg id="routeCanvas" width="100%" height="400" viewBox="0 0 600 400">
+                        </svg>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-center space-x-6 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                            <span>Safe to Fly</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                            <span>Unsafe to Fly</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-8 h-1 bg-red-500 mr-2" style="border: 1px dashed;"></div>
+                            <span>Initial Route</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-8 h-1 bg-green-600 mr-2"></div>
+                            <span>Optimized Route</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800"> City Weather Data</h2>
+                    <div class="overflow-x-auto">
+                        <table id="cityTable" class="min-w-full table-auto">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Coordinates</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temperature (°C)</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Humidity (%)</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wind Speed (km/h)</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cityTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h3 class="text-lg font-semibold mb-4">Edit City Data</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">X Coordinate</label>
+                    <input type="number" id="editX" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Y Coordinate</label>
+                    <input type="number" id="editY" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Temperature (°C)</label>
+                    <input type="number" id="editTemp" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Humidity (%)</label>
+                    <input type="number" id="editHumidity" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Wind Speed (km/h)</label>
+                    <input type="number" id="editWindSpeed" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button onclick="closeEditModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button onclick="saveCity()" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cities = [];
+        let perceptron = null;
+        let initialRoute = [];
+        let optimizedRoute = [];
+        let initialCost = 0;
+        let optimizedCost = 0;
+        let editingCityIndex = -1;
+        let uploadedDataset = null;
+
+        class Perceptron {
+            constructor(learningRate = 0.001, epochs = 5000) {
+                this.learningRate = learningRate;
+                this.epochs = epochs;
+                this.weights = null;
+                this.bias = 0;
+            }
+
+            activate(x) {
+                return x >= 0 ? 1 : 0;
+            }
+
+            predict(inputs) {
+                if (!this.weights) return 0;
+                let sum = this.bias;
+                for (let i = 0; i < inputs.length; i++) {
+                    sum += inputs[i] * this.weights[i];
+                }
+                return this.activate(sum);
+            }
+
+            train(trainingData) {
+                const numFeatures = trainingData[0].inputs.length;
+                this.weights = Array(numFeatures).fill(0).map(() => Math.random() * 0.1 - 0.05);
+                this.bias = Math.random() * 0.1 - 0.05;
+
+                for (let epoch = 0; epoch < this.epochs; epoch++) {
+                    let totalError = 0;
+                    
+                    for (let sample of trainingData) {
+                        const prediction = this.predict(sample.inputs);
+                        const error = sample.target - prediction;
+                        totalError += Math.abs(error);
+
+                        for (let i = 0; i < this.weights.length; i++) {
+                            this.weights[i] += this.learningRate * error * sample.inputs[i];
+                        }
+                        this.bias += this.learningRate * error;
+                    }
+
+                    if (totalError === 0) break;
+                }
+                console.log("Final Weights:", this.weights);
+                console.log("Final Bias:", this.bias);
+            }
+        }
+
+        function setupFileUpload() {
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileUploadArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileUploadArea.addEventListener(eventName, () => {
+                    fileUploadArea.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileUploadArea.addEventListener(eventName, () => {
+                    fileUploadArea.classList.remove('dragover');
+                }, false);
+            });
+
+            fileUploadArea.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const fileName = file.name;
+            const fileSize = (file.size / 1024).toFixed(1);
+            
+            document.getElementById('fileName').textContent = `File: ${fileName}`;
+            document.getElementById('fileStats').textContent = `Size: ${fileSize} KB`;
+            document.getElementById('fileInfo').classList.remove('hidden');
+
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+
+            if (fileExtension === 'csv') {
+                parseCSV(file);
+            } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+                parseExcel(file);
+            } else {
+                alert('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
+                return;
+            }
+        }
+
+        function parseCSV(file) {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processDataset(results.data);
+                },
+                error: function(error) {
+                    alert('Error parsing CSV file: ' + error.message);
+                }
+            });
+        }
+
+        function parseExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    processDataset(jsonData);
+                } catch (error) {
+                    alert('Error parsing Excel file: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processDataset(data) {
+            try {
+                
+                const tempColumns = ['Temperature', 'temperature', 'temp', 'Temp', 'Temperature (°C)', 'Temperature(°C)'];
+                const humidityColumns = ['Humidity', 'humidity', 'Humidity (%)', 'Humidity(%)'];
+                const windColumns = ['Wind Speed', 'WindSpeed', 'wind_speed', 'Wind Speed (km/h)', 'WindSpeed(km/h)', 'wind'];
+                const safeColumns = ['SafeToFly', 'Safe to Fly', 'safe_to_fly', 'Safe', 'safe', 'label', 'Label', 'target', 'Target'];
+
+            
+                const sampleRow = data[0];
+                const columns = Object.keys(sampleRow);
+                
+                const tempCol = tempColumns.find(col => columns.includes(col));
+                const humidityCol = humidityColumns.find(col => columns.includes(col));
+                const windCol = windColumns.find(col => columns.includes(col));
+                const safeCol = safeColumns.find(col => columns.includes(col));
+
+                if (!tempCol || !humidityCol || !windCol || !safeCol) {
+                    throw new Error('Required columns not found. Expected: Temperature, Humidity, Wind Speed, SafeToFly');
+                }
+
+            
+                uploadedDataset = data.map(row => {
+                    const temp = parseFloat(row[tempCol]);
+                    const humidity = parseFloat(row[humidityCol]);
+                    const wind = parseFloat(row[windCol]);
+                    const safe = parseInt(row[safeCol]);
+
+                    if (isNaN(temp) || isNaN(humidity) || isNaN(wind) || (safe !== 0 && safe !== 1)) {
+                        throw new Error('Invalid data format. Check that all values are numeric and SafeToFly is 0 or 1.');
+                    }
+
+                    return {
+                        inputs: [temp, humidity, wind],
+                        target: safe,
+                        temperature: temp,
+                        humidity: humidity,
+                        windSpeed: wind,
+                        safeToFly: safe
+                    };
+                });
+
+            
+                showDatasetPreview();
+                updateButtons();
+                updateResults(`Dataset loaded successfully! ${uploadedDataset.length} samples processed.`);
+
+            } catch (error) {
+                alert('Error processing dataset: ' + error.message);
+                uploadedDataset = null;
+            }
+        }
+
+        function showDatasetPreview() {
+            if (!uploadedDataset) return;
+
+            const preview = document.getElementById('datasetPreview');
+            const tbody = document.getElementById('datasetPreviewBody');
+            const summary = document.getElementById('datasetSummary');
+
+            preview.style.display = 'block';
+            tbody.innerHTML = '';
+
+            const previewData = uploadedDataset.slice(0, 10);
+            previewData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-2 py-1">${row.temperature.toFixed(1)}</td>
+                    <td class="px-2 py-1">${row.humidity.toFixed(1)}</td>
+                    <td class="px-2 py-1">${row.windSpeed.toFixed(1)}</td>
+                    <td class="px-2 py-1">
+                        <span class="px-1 py-0.5 rounded text-xs ${row.safeToFly === 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${row.safeToFly === 0 ? 'Safe' : 'Unsafe'}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+
+            const safeCount = uploadedDataset.filter(row => row.safeToFly === 0).length;
+            const unsafeCount = uploadedDataset.length - safeCount;
+            
+            summary.textContent = `Total: ${uploadedDataset.length} samples | Safe: ${safeCount} | Unsafe: ${unsafeCount}`;
+        }
+
+        function useSampleData() {
+            uploadedDataset = generateSampleDataset();
+            showDatasetPreview();
+            updateButtons();
+            updateResults(`Sample dataset loaded! ${uploadedDataset.length} samples generated.`);
+        }
+
+        function generateSampleDataset() {
+            const data = [];
+            
+        
+            for (let i = 0; i < 100; i++) {
+                const temp = Math.random() * 15 + 5; 
+                const humidity = Math.random() * 40 + 20; 
+                const windSpeed = Math.random() * 10 + 5; 
+                
+                data.push({
+                    inputs: [temp, humidity, windSpeed],
+                    target: 0,
+                    temperature: temp,
+                    humidity: humidity,
+                    windSpeed: windSpeed,
+                    safeToFly: 0
+                });
+            }
+        
+            for (let i = 0; i < 100; i++) {
+                const temp = Math.random() * 20 + 25; 
+                const humidity = Math.random() * 30 + 65; 
+                const windSpeed = Math.random() * 20 + 20; 
+                data.push({
+                    inputs: [temp, humidity, windSpeed],
+                    target: 1,
+                    temperature: temp,
+                    humidity: humidity,
+                    windSpeed: windSpeed,
+                    safeToFly: 1
+                });
+            }
+            
+            return data;
+        }
+
+        function updateButtons() {
+            const hasData = uploadedDataset !== null;
+            document.getElementById('trainBtn').disabled = !hasData;
+        }
+
+        function trainPerceptron() {
+            if (!uploadedDataset) {
+                alert('Please upload a dataset first!');
+                return;
+            }
+
+            perceptron = new Perceptron(0.0001, 6000);
+            perceptron.train(uploadedDataset);
+
+            let correct = 0;
+            for (let sample of uploadedDataset) {
+                if (perceptron.predict(sample.inputs) === sample.target) {
+                    correct++;
+                }
+            }
+            const accuracy = (correct / uploadedDataset.length * 100).toFixed(1);
+            
+            updateResults(`Perceptron trained! Accuracy: ${accuracy}% on ${uploadedDataset.length} samples`);
+        }
+
+
+        function generateRandomCities() {
+            const numCities = parseInt(document.getElementById('numCities').value);
+            cities = [];
+            
+            for (let i = 0; i < numCities; i++) {
+                cities.push({
+                    id: i,
+                    name: `City ${String.fromCharCode(65 + i)}`,
+                    x: Math.random() * 500 + 50,
+                    y: Math.random() * 300 + 50,
+                    temperature: Math.random() * 40 + 5,
+                    humidity: Math.random() * 80 + 20,
+                    windSpeed: Math.random() * 35 + 5,
+                    safeToFly: null
+                });
+            }
+            
+            initialRoute = [...Array(cities.length).keys()];
+            for (let i = initialRoute.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [initialRoute[i], initialRoute[j]] = [initialRoute[j], initialRoute[i]];
+            }
+            
+            updateVisualization();
+            updateCityTable();
+            updateResults('Cities generated! Train perceptron and classify weather.');
+        }
+
+        function classifyWeather() {
+            if (!perceptron) {
+                alert('Please train the perceptron first!');
+                return;
+            }
+            
+            cities.forEach(city => {
+                city.safeToFly = perceptron.predict([city.temperature, city.humidity, city.windSpeed]);
+            });
+            
+            const safeCities = cities.filter(city => city.safeToFly === 0).length;
+            const unsafeCities = cities.filter(city => city.safeToFly === 1).length;
+            
+            updateVisualization();
+            updateCityTable();
+            updateResults(`Weather classified! Safe cities: ${safeCities}, Unsafe cities: ${unsafeCities}`);
+        }
+
+        function calculateDistance(city1, city2) {
+            const dx = city1.x - city2.x;
+            const dy = city1.y - city2.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function calculateRouteCost(route) {
+            let totalCost = 0;
+            const penalty = parseInt(document.getElementById('unsafePenalty').value);
+            
+            for (let i = 0; i < route.length; i++) {
+                const currentCity = cities[route[i]];
+                const nextCity = cities[route[(i + 1) % route.length]];
+                
+                let cost = calculateDistance(currentCity, nextCity);
+                
+                if (currentCity.safeToFly === 1) {
+                    cost += penalty;
+                }
+                
+                totalCost += cost;
+            }
+            
+            return totalCost;
+        }
+
+        function simulatedAnnealing(initialRoute, initialTemp, coolingRate, minTemp = 0.1) {
+            let currentRoute = [...initialRoute];
+            let currentCost = calculateRouteCost(currentRoute);
+            let bestRoute = [...currentRoute];
+            let bestCost = currentCost;
+            let temperature = initialTemp;
+            
+            while (temperature > minTemp) {
+                const newRoute = [...currentRoute];
+                const i = Math.floor(Math.random() * newRoute.length);
+                const j = Math.floor(Math.random() * newRoute.length);
+                [newRoute[i], newRoute[j]] = [newRoute[j], newRoute[i]];
+                
+                const newCost = calculateRouteCost(newRoute);
+                const deltaE = newCost - currentCost;
+                
+                if (deltaE < 0 || Math.random() < Math.exp(-deltaE / temperature)) {
+                    currentRoute = newRoute;
+                    currentCost = newCost;
+                    
+                    if (currentCost < bestCost) {
+                        bestRoute = [...currentRoute];
+                        bestCost = currentCost;
+                    }
+                }
+                
+                temperature *= coolingRate;
+            }
+            
+            return { route: bestRoute, cost: bestCost };
+        }
+
+        function optimizeRoute() {
+            if (!perceptron || cities.some(city => city.safeToFly === null)) {
+                alert('Please train perceptron and classify weather first!');
+                return;
+            }
+            
+            const initialTemp = parseFloat(document.getElementById('initialTemp').value);
+            const coolingRate = parseFloat(document.getElementById('coolingRate').value);
+            
+            const optimizeBtn = document.getElementById('optimizeBtn');
+            const originalText = optimizeBtn.textContent;
+            optimizeBtn.innerHTML = '<div class="loading w-4 h-4 border-2 border-white border-t-transparent rounded-full mx-auto"></div>';
+            optimizeBtn.disabled = true;
+            
+            setTimeout(() => {
+                initialCost = calculateRouteCost(initialRoute);
+                const result = simulatedAnnealing(initialRoute, initialTemp, coolingRate);
+                optimizedRoute = result.route;
+                optimizedCost = result.cost;
+                
+                const improvement = ((initialCost - optimizedCost) / initialCost * 100).toFixed(1);
+                
+                updateVisualization();
+                updateResults(`Optimization complete! Cost reduced from ${initialCost.toFixed(1)} to ${optimizedCost.toFixed(1)} (${improvement}% improvement)`);
+                
+                optimizeBtn.textContent = originalText;
+                optimizeBtn.disabled = false;
+            }, 1000);
+        }
+
+        function updateVisualization() {
+            const svg = document.getElementById('routeCanvas');
+            svg.innerHTML = '';
+            
+            if (cities.length === 0) return;
+
+            if (initialRoute.length > 0) {
+                const pathData = initialRoute.map((cityIndex, i) => {
+                    const city = cities[cityIndex];
+                    return `${i === 0 ? 'M' : 'L'} ${city.x} ${city.y}`;
+                }).join(' ') + ' Z';
+                
+                const initialPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                initialPath.setAttribute('d', pathData);
+                initialPath.setAttribute('class', 'route-line initial-route');
+                svg.appendChild(initialPath);
+            }
+
+            if (optimizedRoute.length > 0) {
+                const pathData = optimizedRoute.map((cityIndex, i) => {
+                    const city = cities[cityIndex];
+                    return `${i === 0 ? 'M' : 'L'} ${city.x} ${city.y}`;
+                }).join(' ') + ' Z';
+                
+                const optimizedPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                optimizedPath.setAttribute('d', pathData);
+                optimizedPath.setAttribute('class', 'route-line optimized-route');
+                svg.appendChild(optimizedPath);
+            }
+
+            cities.forEach((city, index) => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', city.x);
+                circle.setAttribute('cy', city.y);
+                circle.setAttribute('r', 12);
+                circle.setAttribute('class', `city-node ${city.safeToFly === 0 ? 'safe-city' : city.safeToFly === 1 ? 'unsafe-city' : ''}`);
+                circle.setAttribute('stroke', '#ffffff');
+                circle.setAttribute('stroke-width', '2');
+                circle.style.fill = city.safeToFly === null ? '#6b7280' : (city.safeToFly === 0 ? '#10b981' : '#ef4444');
+                svg.appendChild(circle);
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', city.x);
+                text.setAttribute('y', city.y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '12');
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('fill', 'white');
+                text.textContent = city.name.charAt(city.name.length - 1);
+                svg.appendChild(text);
+            });
+        }
+
+        function updateCityTable() {
+            const tbody = document.getElementById('cityTableBody');
+            tbody.innerHTML = '';
+            
+            cities.forEach((city, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${city.name}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">(${city.x.toFixed(0)}, ${city.y.toFixed(0)})</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${city.temperature.toFixed(1)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${city.humidity.toFixed(1)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">${city.windSpeed.toFixed(1)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm">
+                        ${city.safeToFly === null ? 
+                            '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Unknown</span>' :
+                            city.safeToFly === 0 ? 
+                                '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">✓ Safe</span>' :
+                                '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">⚠ Unsafe</span>'
+                        }
+                    </td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm">
+                        <button onclick="editCity(${index})" class="text-blue-600 hover:text-blue-900 text-xs">Edit</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+
+        function updateResults(message) {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-green-600 font-medium">[${timestamp}] ${message}</p>
+                    ${initialCost > 0 ? `<p class="text-sm"><strong>Initial Cost:</strong> ${initialCost.toFixed(1)}</p>` : ''}
+                    ${optimizedCost > 0 ? `<p class="text-sm"><strong>Optimized Cost:</strong> ${optimizedCost.toFixed(1)}</p>` : ''}
+                    ${initialCost > 0 && optimizedCost > 0 ? `<p class="text-sm"><strong>Improvement:</strong> ${((initialCost - optimizedCost) / initialCost * 100).toFixed(1)}%</p>` : ''}
+                </div>
+            `;
+        }
+
+        function editCity(index) {
+            editingCityIndex = index;
+            const city = cities[index];
+            
+            document.getElementById('editX').value = city.x.toFixed(0);
+            document.getElementById('editY').value = city.y.toFixed(0);
+            document.getElementById('editTemp').value = city.temperature.toFixed(1);
+            document.getElementById('editHumidity').value = city.humidity.toFixed(1);
+            document.getElementById('editWindSpeed').value = city.windSpeed.toFixed(1);
+            
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editModal').classList.add('flex');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModal').classList.remove('flex');
+            editingCityIndex = -1;
+        }
+
+        function saveCity() {
+            if (editingCityIndex >= 0) {
+                const city = cities[editingCityIndex];
+                city.x = parseFloat(document.getElementById('editX').value);
+                city.y = parseFloat(document.getElementById('editY').value);
+                city.temperature = parseFloat(document.getElementById('editTemp').value);
+                city.humidity = parseFloat(document.getElementById('editHumidity').value);
+                city.windSpeed = parseFloat(document.getElementById('editWindSpeed').value);
+                city.safeToFly = null;
+                
+                updateVisualization();
+                updateCityTable();
+                closeEditModal();
+                updateResults('City data updated. Re-classify weather to see changes.');
+            }
+        }
+
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFileUpload();
+            updateButtons();
+            generateRandomCities();
+        });
+    </script>
+</body>
+</html>
